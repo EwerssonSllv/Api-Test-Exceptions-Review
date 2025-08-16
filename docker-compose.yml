@@ -1,0 +1,12 @@
+services:
+  app:
+    image: api   # docker build -t api .
+    container_name: api
+    build: .
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://dpg-d2gcet2dbo4c73b0iodg-a.oregon-postgres.render.com:5432/dbapp_3ikk?ssl=true&sslmode=require
+      SPRING_DATASOURCE_USERNAME: dbapp_3ikk_user
+      SPRING_DATASOURCE_PASSWORD: 4l1kytpZNkoQ8glgiZbpjbyQbBWeY6bK
+    restart: on-failure
