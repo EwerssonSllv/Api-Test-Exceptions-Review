@@ -5,9 +5,13 @@ import com.ewersson.app_api.model.user.AuthenticationDTO
 import com.ewersson.app_api.model.user.LoginResponseDTO
 import com.ewersson.app_api.model.user.RegisterDTO
 import com.ewersson.app_api.model.user.User
+import com.ewersson.app_api.model.user.UserRole
 import com.ewersson.app_api.repository.UserRepository
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.hateoas.EntityModel
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn
 import org.springframework.http.ResponseEntity
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -26,32 +30,42 @@ class AuthController @Autowired constructor(
     private val passwordEncoder: BCryptPasswordEncoder        // Encrypts passwords
 ) {
 
-    @PostMapping("/login") // POST /auth/login
-    fun login(@RequestBody data: @Valid AuthenticationDTO): ResponseEntity<LoginResponseDTO> {
-        // Creates authentication token from user input
+    @PostMapping("/login")
+    fun login(@RequestBody data: @Valid AuthenticationDTO): ResponseEntity<EntityModel<LoginResponseDTO>> {
         val usernamePassword = UsernamePasswordAuthenticationToken(data.login, data.password)
         val auth = authenticationManager.authenticate(usernamePassword)
-        // Validates credentials using Spring Security
-
         val token = tokenService.generateToken(auth.principal as User)
-        // Generates JWT for authenticated user
 
-        return ResponseEntity.ok(LoginResponseDTO(token))
-        // Returns token to client
+        val response = EntityModel.of(LoginResponseDTO(token))
+        response.add(linkTo(methodOn(AuthController::class.java).login(data)).withSelfRel())
+        response.add(linkTo(methodOn(AuthController::class.java).register(RegisterDTO("", "", ""))).withRel("register"))
+
+        return ResponseEntity.ok(response)
     }
 
-    @PostMapping("/register") // POST /auth/register
-    fun register(@RequestBody data: @Valid RegisterDTO): ResponseEntity<Any> {
-        // If login already exists → reject
+    @PostMapping("/register")
+    fun register(@RequestBody data: @Valid RegisterDTO): ResponseEntity<EntityModel<Any>> {
         if (repository.findByLogin(data.login) != null)
-            return ResponseEntity.badRequest().build<Any>()
+            return ResponseEntity.badRequest().build()
 
-        // Encrypt password before saving
         val encryptedPassword = passwordEncoder.encode(data.password)
-        val newUser = User(data.role, data.login, encryptedPassword)
 
-        repository.save(newUser) // Store new user in database
+        val roleEnum = try {
+            UserRole.valueOf(data.role.uppercase())
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.badRequest()
+                .body(EntityModel.of("Invalid role: ${data.role}"))
+        }
 
-        return ResponseEntity.ok().build<Any>() // Success response
+        val newUser = User(roleEnum, data.login, encryptedPassword)
+        repository.save(newUser)
+
+        val response: EntityModel<Any> = EntityModel.of("User registered successfully")
+        response.add(linkTo(methodOn(AuthController::class.java).register(data)).withSelfRel())
+        response.add(linkTo(methodOn(AuthController::class.java).login(AuthenticationDTO(data.login, data.password))).withRel("login"))
+
+        return ResponseEntity.ok(response)
     }
+
+
 }

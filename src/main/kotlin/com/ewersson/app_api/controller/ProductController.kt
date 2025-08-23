@@ -4,50 +4,126 @@ import com.ewersson.app_api.model.product.ProductDTO
 import com.ewersson.app_api.model.user.User
 import com.ewersson.app_api.service.ProductService
 import jakarta.validation.Valid
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.hateoas.CollectionModel
+import org.springframework.hateoas.EntityModel
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
 
-@RestController // Defines this class as a REST API controller (JSON responses)
-@RequestMapping("/products") // Base path: /products
+
+@RestController
+@RequestMapping("/products")
 class ProductController(
-    @Autowired
-    private val productService: ProductService // Service layer for product operations
+    private val productService: ProductService
 ) {
 
-    @PostMapping // POST /products
+    @PostMapping
     fun createProduct(
-        @RequestBody @Valid productDTO: ProductDTO,              // Product data from client
-        @AuthenticationPrincipal authenticatedUser: User         // Injects the logged-in user
-    ): ResponseEntity<ProductDTO> {
+        @RequestBody @Valid productDTO: ProductDTO,
+        @AuthenticationPrincipal authenticatedUser: User
+    ): ResponseEntity<EntityModel<ProductDTO>> {
         val createdProduct = productService.createProduct(productDTO, authenticatedUser)
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct)
-        // Returns 201 Created + product info
+
+        val resource = EntityModel.of(createdProduct)
+
+        // Link self
+        resource.add(
+            linkTo(methodOn(ProductController::class.java)
+                .createProduct(productDTO, authenticatedUser))
+                .withSelfRel()
+        )
+
+        // Link to all products
+        resource.add(
+            linkTo(methodOn(ProductController::class.java)
+                .getAllProducts(authenticatedUser))
+                .withRel("all-products")
+        )
+
+        // Link to delete, only if id is not null
+        createdProduct.id?.let { id ->
+            resource.add(
+                linkTo(methodOn(ProductController::class.java)
+                    .deleteProduct(id, authenticatedUser))
+                    .withRel("delete")
+            )
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(resource)
     }
 
-    @GetMapping("/all") // GET /products/all
+
+    @GetMapping("/all")
     fun getAllProducts(
         @AuthenticationPrincipal authenticatedUser: User
-    ): ResponseEntity<List<ProductDTO>> {
+    ): ResponseEntity<CollectionModel<EntityModel<ProductDTO>>> {
         return try {
             val products = productService.findAllProducts()
-            ResponseEntity.ok(products) // 200 OK with product list
+
+            val productResources = products.map { product ->
+                val resource = EntityModel.of(product)
+
+                // Link to create product
+                resource.add(
+                    linkTo(methodOn(ProductController::class.java)
+                        .createProduct(product, authenticatedUser))
+                        .withRel("create")
+                )
+
+                // Link to delete product only if id is not null
+                product.id?.let { id ->
+                    resource.add(
+                        linkTo(methodOn(ProductController::class.java)
+                            .deleteProduct(id, authenticatedUser))
+                            .withRel("delete")
+                    )
+                }
+
+                // Link to list all
+                resource.add(
+                    linkTo(methodOn(ProductController::class.java)
+                        .getAllProducts(authenticatedUser))
+                        .withRel("all-products")
+                )
+
+                resource
+            }
+
+            val collection = CollectionModel.of(productResources)
+            collection.add(
+                linkTo(methodOn(ProductController::class.java)
+                    .getAllProducts(authenticatedUser))
+                    .withSelfRel()
+            )
+
+            ResponseEntity.ok(collection)
         } catch (e: Exception) {
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
 
-    @DeleteMapping("/{id}") // DELETE /products/{id}
+
+    @DeleteMapping("/{id}")
     fun deleteProduct(
-        @PathVariable id: String,                               // Product ID from URL
+        @PathVariable id: String,
         @AuthenticationPrincipal authenticatedUser: User
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<EntityModel<Any>> {
         return if (productService.deleteProduct(id)) {
-            ResponseEntity.status(HttpStatus.NO_CONTENT).build() // 204 if deleted
+            val response: EntityModel<Any> = EntityModel.of<Any>("Product deleted successfully")
+            response.add(
+                linkTo(methodOn(ProductController::class.java)
+                    .getAllProducts(authenticatedUser))
+                    .withRel("all-products")
+            )
+            ResponseEntity.status(HttpStatus.NO_CONTENT).body(response)
         } else {
-            ResponseEntity.status(HttpStatus.NOT_FOUND).build()  // 404 if not found
+            val response: EntityModel<Any> = EntityModel.of<Any>("Product not found")
+            ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
         }
     }
+
+
 }

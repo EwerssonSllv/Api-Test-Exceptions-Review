@@ -119,7 +119,39 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 5. Security
+### 5. HATEOAS Integration
+
+This API implements **HATEOAS (Hypermedia as the Engine of Application State)** to make responses more discoverable and self-descriptive. By including links in API responses, clients can dynamically navigate available actions without hardcoding URLs.
+
+#### Example: Create Product Response
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "product_name": "Laptop",
+  "image": "http://example.com/image.png",
+  "price": 1500.0,
+  "stock": 10,
+  "_links": {
+    "self": {
+      "href": "http://localhost:8082/products"
+    },
+    "all-products": {
+      "href": "http://localhost:8082/products/all"
+    },
+    "delete": {
+      "href": "http://localhost:8082/products/123e4567-e89b-12d3-a456-426614174000"
+    }
+  }
+}
+```
+
+Benefits:
+* Clients discover available actions dynamically.
+* Reduces coupling between client and server implementations.
+* Aligns the API with **Level 3 of the Richardson Maturity Model**.
+
+### 6. Security
 
 #### SecurityFilter.kt
 
@@ -134,7 +166,7 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 6. Testing
+### 7. Testing
 
 #### ProductApiSpringTest.kt
 
@@ -161,7 +193,7 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 7. Configuration
+### 8. Configuration
 
 #### application.properties
 
@@ -174,7 +206,7 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 8. Dependencies
+### 9. Dependencies
 
 * Spring Boot Web, Data JPA, Security.
 * PostgreSQL driver.
@@ -187,7 +219,7 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 9. Usage
+### 10. Usage
 
 1. Run PostgreSQL database and configure credentials.
 2. Start Spring Boot application.
@@ -199,7 +231,7 @@ This project is a Kotlin-based Spring Boot REST API for managing users and produ
 
 ---
 
-### 10. Notes
+### 11. Notes
 
 * Security is handled with JWT tokens.
 * Admin and User roles differentiate access.
