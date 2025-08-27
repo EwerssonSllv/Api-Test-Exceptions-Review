@@ -53,7 +53,7 @@ class SecurityConfigurations {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
-        configuration.allowedOrigins = listOf("http://127.0.0.1:5500", "http://localhost:5500")
+        configuration.allowedOrigins = listOf("http://127.0.0.1:5500", "http://localhost:5500", "https://api-test-exceptions-review.onrender.com")
         // Allowed client origins
         configuration.allowedMethods = listOf("POST", "GET", "PUT", "DELETE")
         // Allowed HTTP methods
